@@ -1,0 +1,13 @@
+{
+    "python.languageServer": "Pylance",
+    "editor.formatOnSave": true,
+    "python.formatting.autopep8Args": [
+        "--max-line-length=100"
+    ],
+    "python.linting.pylintArgs": [
+        "--extension-pkg-allow-list=cv2"
+    ],
+    "python.linting.pylintEnabled": true,
+    "python.linting.enabled": true,
+    "python.defaultInterpreterPath": "/Users/duklin/mambaforge/envs/cv/bin/python"
+}
