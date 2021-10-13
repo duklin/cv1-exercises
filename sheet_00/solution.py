@@ -70,7 +70,7 @@ def draw_ellipse(img: np.ndarray):
 if __name__ == '__main__':
 
     # set image path
-    IMG_PATH = '../bonn.png'
+    IMG_PATH = 'bonn.png'
 
     # 2a: read and display the image
     img = cv.imread(IMG_PATH)
