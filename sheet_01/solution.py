@@ -32,7 +32,7 @@ def integral_image(img: np.ndarray) -> np.ndarray:
 
 
 def sum_image(image: np.ndarray) -> int:
-    """Return the sum of pixel values of the input image. 
+    """Return the sum of pixel values of the input image.
     The method assumes grayscale image as input"""
     pixel_sum = 0
     height, width = image.shape
@@ -91,7 +91,8 @@ def task1():
         means_summing.append(rect_mean)
     end = time.perf_counter()
     print(f'mean value by summing: {end-start:.5f}')
-    print(f'Are the three lists the same: {means_custom == means_cv == means_summing}')
+    print(
+        f'Do the different implementation give same output: {means_custom == means_cv == means_summing}')
 
 
 task1()
@@ -100,8 +101,9 @@ task1()
 # ********************TASK2***********************
 
 
-def equalize_hist_image(img: np.ndarray):
-    # Your implementation of histogram equalization
+def equalize_hist_image(img: np.ndarray) -> np.ndarray:
+    """Custom implementation of `cv2.equalizeHist`
+    The method assumes grayscale image as input"""
     hist, _ = np.histogram(img.flatten(), 256, [0, 256])
     hist_norm = hist / hist.sum()
     cdf = hist_norm.cumsum()
@@ -120,11 +122,11 @@ def task2():
         'cv.equalizedHist': equalized_cv,
         'custom implementation of cv.equalizedHist': equalized_custom
     })
-    pix_err = np.abs(equalized_custom-equalized_cv)
+    pix_err = cv.absdiff(equalized_cv, equalized_custom)
     print(f'Maximum pixel error: {pix_err.max()}')
 
 
-# task2()
+task2()
 
 
 # ************************************************
@@ -166,17 +168,14 @@ def task4():
     })
 
     print('Maximum pixel-wise differences:')
-    blur_cv_int16 = blur_cv.astype(np.int16)
-    blur_filter2d_int16 = blur_filter2d.astype(np.int16)
-    blur_sepFilter2d_int16 = blur_sepFilter2d.astype(np.int16)
-    print(f'cv.GaussianBlur and cv.filter2D: {np.abs(blur_cv_int16-blur_filter2d_int16).max()}')
+    print(f'cv.GaussianBlur and cv.filter2D: {cv.absdiff(blur_cv, blur_filter2d).max()}')
     print(
-        f'cv.GaussianBlur and cv.sepFilter2D: {np.abs(blur_cv_int16-blur_sepFilter2d_int16).max()}')
+        f'cv.GaussianBlur and cv.sepFilter2D: {cv.absdiff(blur_cv, blur_sepFilter2d).max()}')
     print(
-        f'cv.filter2D and cv.sepFilter2D: {np.abs(blur_filter2d_int16-blur_sepFilter2d_int16).max()}')
+        f'cv.filter2D and cv.sepFilter2D: {cv.absdiff(blur_filter2d, blur_sepFilter2d).max()}')
 
 
-# task4()
+task4()
 
 # ************************************************
 # ********************TASK5***********************
@@ -195,23 +194,26 @@ def task5():
         'Blurred twice with sigma=2': blur_a,
         'Blurred once with sigma 2*sqrt(2)': blur_b
     })
-    diff = np.abs(blur_a - blur_b)
+    diff = cv.absdiff(blur_a, blur_b)
     print(f'Maximum pixel difference: {diff.max()}')
 
 
-# task5()
+task5()
 
 # ************************************************
 # ********************TASK7***********************
 
+
 def add_salt_n_pepper_noise(img: np.ndarray):
+    """Add salt and pepper noise with 30 percent chance
+    that a pixel will be replaces by 0 or 255. Do the
+    operation in-place"""
     width, height = img.shape
     for i in range(width):
         for j in range(height):
             should_noise = np.random.choice([False, True], p=[0.7, 0.3])
             if should_noise:
-                noise = np.random.choice([0, 255])
-                img[i][j] = noise
+                img[i][j] = np.random.choice([0, 255])
 
 
 def task7():
@@ -231,9 +233,9 @@ def task7():
         median_blur = cv.medianBlur(noised_img, ksize=filter_size)
         bilateral_blur = cv.bilateralFilter(noised_img, d=filter_size, sigmaColor=75, sigmaSpace=75)
 
-        gaussian_score = abs(img.mean() - gaussian_blur.mean())
-        median_score = abs(img.mean() - median_blur.mean())
-        bilateral_score = abs(img.mean() - bilateral_blur.mean())
+        gaussian_score = cv.norm(img, gaussian_blur, normType=cv.NORM_L2)
+        median_score = cv.norm(img, median_blur, normType=cv.NORM_L2)
+        bilateral_score = cv.norm(img, bilateral_blur, normType=cv.NORM_L2)
 
         if gaussian_score < result['gaussian'][1]:
             result['gaussian'] = (gaussian_blur, gaussian_score)
@@ -266,23 +268,25 @@ def task8():
                    [-1.9075, 0.1566, 2.1359],
                    [-0.8659, 0.0573, 1.0337]])
 
-    filtered1 = cv.filter2D(img, -1, k1)
-    filtered2 = cv.filter2D(img, -1, k2)
+    # 8.a
+    filtered_a = cv.filter2D(img, -1, k1)
+    filtered_a = cv.filter2D(filtered_a, -1, k2)
 
-    display_imgs({
-        'k1': filtered1,
-        'k2': filtered2
-    })
+    # 8.b
     w1, u1, vt1 = cv.SVDecomp(k1)
     w2, u2, vt2 = cv.SVDecomp(k2)
 
-    filter1_approx = cv.sepFilter2D(img, -1, kernelX=w1[0]*u1[:, 0], kernelY=vt1[0, :])
-    filter2_approx = cv.sepFilter2D(img, -1, kernelX=w2[0]*u2[:, 0], kernelY=vt2[0, :])
+    filtered_b = cv.sepFilter2D(img, -1, kernelX=w1[0]*u1[:, 0], kernelY=vt1[0, :])
+    filtered_b = cv.sepFilter2D(filtered_b, -1, kernelX=w2[0]*u2[:, 0], kernelY=vt2[0, :])
 
     display_imgs({
-        'k1 approx': filter1_approx,
-        'k2 approx': filter2_approx
+        '8.a': filtered_a,
+        '8.b': filtered_b
     })
 
+    # 8.c
+    diff = cv.absdiff(filtered_a, filtered_b)
+    print(f'Maximum pixelwise difference: {diff.max()}')
 
-# task8()
+
+task8()
