@@ -269,20 +269,78 @@ def task4():
     })
 
 
+def l2_distance_transform_1D(edge_vector, positive_inf, negative_inf):
+    l = len(edge_vector)
+    k = 0
+
+    v = np.zeros(l, np.int32)
+
+    z = np.empty(l + 1)
+    z[0] = negative_inf
+    z[1] = positive_inf
+
+    dist_tf = np.zeros(l)
+
+    q = 1
+    while q < l:
+        s = ((edge_vector[q] + q ** 2) - (edge_vector[v[k]] + v[k] ** 2)) / (2 * (q - v[k]))
+        if s <= z[k]:
+            k = k - 1
+            continue
+        else:
+            k = k + 1
+            v[k] = q
+            z[k] = s
+            z[k + 1] = positive_inf
+            q = q + 1
+    k = 0
+    for q in range(l):
+        while z[k + 1] < q:
+            k = k + 1
+        dist_tf[q] = (q - v[k]) ** 2 + edge_vector[v[k]]
+
+    return dist_tf
+
+
 def l2_distance_transform_2D(edge_function, positive_inf, negative_inf):
-    # TODO: implement
-    raise NotImplementedError
+    dist_column_wise = np.zeros_like(edge_function, np.uint32)
+    for col in range(edge_function.shape[1]):
+        dist_column_wise[:, col] = l2_distance_transform_1D(
+            edge_function[:, col], positive_inf, negative_inf)
+
+    l2_dist_tf = np.zeros_like(edge_function, np.uint32)
+    for row in range(edge_function.shape[0]):
+        l2_dist_tf[row] = l2_distance_transform_1D(
+            dist_column_wise[row], positive_inf, negative_inf)
+
+    l2_dist_tf = l2_dist_tf * 255 / np.max(l2_dist_tf)
+    return l2_dist_tf
 
 
 def task5():
-    image = cv2.imread("../data/traffic.jpg", 0)
+    print_task_name("5. Distance Transform")
+    image = cv2.imread("./data/traffic.jpg", 0)
 
-    edges = None  # TODO: compute edges
+    # Detect Edges
+    edges = cv2.Canny(image, 200, 225)
+    display_imgs({'edges': edges})
 
-    dist_transfom_mine = l2_distance_transform_2D()
-    dist_transfom_cv = None  # TODO: compute using opencv
+    positive_inf = np.inf
+    negative_inf = -np.inf
 
-    # TODO: compare and print mean absolute difference
+    binary_edges = np.where(edges == 255, 0, image.shape[0] ** 2 + image.shape[1] ** 2)
+    dist_transfom_mine = l2_distance_transform_2D(binary_edges, positive_inf, negative_inf)
+    display_imgs({'dist_mine': dist_transfom_mine})
+
+    _, binary_edges = cv2.threshold(edges, 128, 255, type=cv2.THRESH_BINARY_INV)
+    dist_transfom_cv = cv2.distanceTransform(binary_edges, cv2.DIST_L2, 5, dstType=cv2.CV_32F)
+    display_imgs({'dist_cv': dist_transfom_cv})
+
+    # Mean Absolute Difference
+    abs_diff = np.abs(dist_transfom_mine - dist_transfom_cv)
+    mean_abs_diff = np.mean(abs_diff)
+
+    print("The mean absolute difference of the two distance transforms is: {}".format(mean_abs_diff))
 
 
 if __name__ == "__main__":
