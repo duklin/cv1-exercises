@@ -50,10 +50,10 @@ def task1():
     print(f"The mean absolute difference of the two blurred images is: {mean_abs_diff}")
 
 
-# task1()
-
-
 def normalized_cross_correlation(image, template):
+    """Return a normalized cross correlation image with
+    same dimension as the provided `image` based on the
+    provided `template`"""
     im_height, im_width = image.shape
     temp_height, temp_width = template.shape
 
@@ -82,12 +82,17 @@ def normalized_cross_correlation(image, template):
 
 
 def template_match(image, template, thresh=0.7):
+    """Return x and y coordinates in two numpy arrays
+    of the center coordinates where the `template` is found
+    in the `image` by using normalized cross correlation"""
     result_ncc = normalized_cross_correlation(image, template)
     match_rows, match_cols = np.where(result_ncc >= thresh)
     return match_rows, match_cols
 
 
 def draw_bbox(image, center_x, center_y, width, height):
+    """Draw in-place rectangle with dimensions `width` and `height`
+    and center `(center_x, center_y)`"""
     cv2.rectangle(image, (center_x-width//2, center_y-height//2), (
         center_x+width//2, center_y+height//2), 128, 1)
 
@@ -108,10 +113,11 @@ def task2():
     display_imgs({'Matched Template with bounding box': image})
 
 
-# task2()
-
-
 def build_gaussian_pyramid_opencv(image, num_levels):
+    """Build Gaussian pyramid by using `cv2.pyrDown` method.
+    Return a list of numpy arrays where the first element is the `image`
+    and the last element is the image in the highest level
+    of the pyramid"""
     pyramid = [image]
     for _ in range(num_levels-1):
         last_lvl = pyramid[-1]
@@ -121,6 +127,10 @@ def build_gaussian_pyramid_opencv(image, num_levels):
 
 
 def build_gaussian_pyramid(image, num_levels):
+    """Build Gaussian pyramid by Gaussian filtering and subsampling.
+    Return a list of numpy arrays where the first element is the `image`
+    and the last element is the image in the highest level
+    of the pyramid"""
     pyramid = [image]
     kernel = cv2.getGaussianKernel(ksize=5, sigma=0)
     for _ in range(num_levels-1):
@@ -208,7 +218,7 @@ def task3():
     match_rows, match_cols = template_matching_multiple_scales(
         my_pyramid, my_pyramid_template, thresh=0.85)
     end = time.perf_counter()
-    print(f'Template matching when using the pyramid: {end-start:.2f}')
+    print(f'Template matching when using the pyramid: {end-start:.2f}s.')
 
     image_bbox = np.copy(image)
     for match_row, match_col in zip(match_rows, match_cols):
@@ -217,27 +227,46 @@ def task3():
     display_imgs({'Template matching by using pyramid': image_bbox})
 
 
-# task3()
+def get_derivative_of_gaussian_kernel(size: int, sigma: float):
+    """Return a derivative of the Gaussian filter in x and y direction.
+    The resulting filters will have `size-1, size-1` dimension"""
+    kernel = cv2.getGaussianKernel(ksize=size, sigma=sigma)
+    kernel_deriv = np.diff(kernel, axis=0)
+    deriv_size = kernel_deriv.shape[0]
+    kernel_deriv_x = np.broadcast_to(kernel_deriv.T, (deriv_size, deriv_size))
+    kernel_deriv_y = np.broadcast_to(kernel_deriv, (deriv_size, deriv_size))
+    return kernel_deriv_x, kernel_deriv_y
 
 
-def get_derivative_of_gaussian_kernel(size, sigma):
-    # TODO: implement
-    raise NotImplementedError
+def arr_to_img(array: np.ndarray) -> np.ndarray:
+    """Linearly map an array into the range 0-255
+    and convert it to `np.uint8` thus making it
+    suitable for visualization"""
+    slope = 255/(array.max()-array.min())
+    array = np.round(slope*(array-array.min()))
+    array = array.astype(np.uint8)
+    return array
 
 
 def task4():
-    image = cv2.imread("../data/einstein.jpeg", 0)
+    print_task_name("4. Edges")
+    image = cv2.imread("./data/einstein.jpeg", 0)
 
     kernel_x, kernel_y = get_derivative_of_gaussian_kernel(5, 0.6)
 
-    edges_x = None  # TODO: convolve with kernel_x
-    edges_y = None  # TODO: convolve with kernel_y
+    edges_x = cv2.filter2D(image, cv2.CV_64F, kernel=kernel_x)
+    edges_y = cv2.filter2D(image, cv2.CV_64F, kernel=kernel_y)
 
-    magnitude = None  # TODO: compute edge magnitude
-    direction = None  # TODO: compute edge direction
+    magnitude = np.sqrt(np.square(edges_x)+np.square(edges_y))
+    direction = np.arctan2(edges_y, edges_x)
 
-    cv2.imshow("Magnitude", magnitude)
-    cv2.imshow("Direction", direction)
+    magnitude = arr_to_img(magnitude)
+    direction = arr_to_img(direction)
+
+    display_imgs({
+        'magnitude': magnitude,
+        'direction': direction
+    })
 
 
 def l2_distance_transform_2D(edge_function, positive_inf, negative_inf):
@@ -256,9 +285,9 @@ def task5():
     # TODO: compare and print mean absolute difference
 
 
-# if __name__ == "__main__":
-#     task1()
-#     task2()
-#     task3()
-#     task4()
-#     task5()
+if __name__ == "__main__":
+    task1()
+    task2()
+    task3()
+    task4()
+    task5()
