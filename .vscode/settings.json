@@ -7,7 +7,9 @@
     "python.linting.pylintArgs": [
         "--extension-pkg-allow-list=cv2"
     ],
-    "python.linting.pylintEnabled": true,
+    "python.linting.pylintEnabled": false,
     "python.linting.enabled": true,
-    "python.defaultInterpreterPath": "/Users/duklin/mambaforge/envs/cv/bin/python"
+    "python.defaultInterpreterPath": "/Users/duklin/mambaforge/envs/cv/bin/python",
+    "python.formatting.provider": "black",
+    "python.linting.flake8Enabled": true
 }
