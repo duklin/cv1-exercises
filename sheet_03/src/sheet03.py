@@ -1,6 +1,5 @@
 import numpy as np
 import cv2 as cv
-import random
 
 
 def display_imgs(im_dict: dict):
@@ -51,10 +50,12 @@ def myHoughLines(img_edges, d_resolution, theta_step_sz, threshold):
     :param d_resolution: the resolution for the distance parameter
     :param theta_step_sz: the resolution for the angle parameter
     :param threshold: minimum number of votes to consider a detection
-    :return: list of detected lines as (d, theta) pairs and the accumulator
+    :return: list of detected lines as (d, theta) pairs, accumulator,
+    accumulator axes values (distance and theta values)
     """
     accumulator = np.zeros(
-        (int(180 / theta_step_sz), int(np.linalg.norm(img_edges.shape) / d_resolution))
+        (int(180 / theta_step_sz), int(np.linalg.norm(img_edges.shape) / d_resolution)),
+        dtype=np.int32,
     )
     detected_lines = []
     theta_vals = np.linspace(0, 180, num=accumulator.shape[0], endpoint=False)
@@ -63,15 +64,17 @@ def myHoughLines(img_edges, d_resolution, theta_step_sz, threshold):
     thetas_cos = np.cos(theta_vals).reshape(-1, 1)
     thetas_sin = np.sin(theta_vals).reshape(-1, 1)
 
-    y, x = img_edges.nonzero()
-    y = y.reshape(-1, 1)
-    x = x.reshape(-1, 1)
+    rows, cols = img_edges.nonzero()
+    rows = rows.reshape(-1, 1)
+    cols = cols.reshape(-1, 1)
 
-    rhos = x * thetas_cos.T + y * thetas_sin.T
+    # rhos is of dim (num of points, 180/theta_step_sz)
+    rhos = cols * thetas_cos.T + rows * thetas_sin.T
     rho_vals = np.linspace(rhos.min(), rhos.max(), num=accumulator.shape[1])
 
     for rhos_per_point in rhos:
         for j, rho_per_point_per_theta in enumerate(rhos_per_point):
+            # to which rho from rho_vals is closest
             rho_idx = np.abs(rho_per_point_per_theta - rho_vals).argmin()
             accumulator[j][rho_idx] += 1
 
@@ -81,7 +84,7 @@ def myHoughLines(img_edges, d_resolution, theta_step_sz, threshold):
         rho = rho_vals[rho_idx]
         detected_lines.append((rho, theta))
 
-    return detected_lines, accumulator
+    return detected_lines, accumulator, theta_vals, rho_vals
 
 
 def task_1_b():
@@ -89,7 +92,7 @@ def task_1_b():
     img = cv.imread("../images/shapes.png")
     img_gray = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
     edges = cv.Canny(img_gray, 50, 150, apertureSize=3)
-    detected_lines, accumulator = myHoughLines(edges, 1, 2, 50)
+    detected_lines, accumulator, _, _ = myHoughLines(edges, 1, 2, 50)
 
     draw_hough_lines(img, detected_lines)
 
@@ -106,16 +109,63 @@ def task_1_b():
 def task_2():
     print("Task 2 ...")
     img = cv.imread("../images/line.png")
-    img_gray = None  # convert the image into grayscale
-    edges = None  # detect the edges
-    theta_res = None  # set the resolution of theta
-    d_res = None  # set the distance resolution
-    # _, accumulator = myHoughLines(edges, d_res, theta_res, 50)
-    """
-    ...
-    your code ...
-    ...
-    """
+    img_gray = cv.cvtColor(img, cv.COLOR_BGR2GRAY)  # convert the image into grayscale
+    edges = cv.Canny(img_gray, 50, 150, apertureSize=3)  # detect the edges
+    theta_res = 2  # set the resolution of theta
+    d_res = 1  # set the distance resolution
+    _, accumulator, theta_vals, rho_vals = myHoughLines(edges, d_res, theta_res, 50)
+
+    acc_h, acc_w = accumulator.shape
+    rows, cols = np.meshgrid(np.arange(acc_h), np.arange(acc_w), indexing="ij")
+
+    # the idea is to transform the data from accumulator, and the axes values
+    # (theta_vals and rho_vals) so that we have two 1d arrays theta_vals and rho_vals which
+    # hold the theta and distance parameters for all the points in the Hough space
+    # for better processing in the mean shift algorithm
+    # every point is repeated as many times as the corresponding accumulator value
+    theta_vals = theta_vals[rows]
+    rho_vals = rho_vals[cols]
+    theta_vals = theta_vals.repeat(accumulator.flatten())
+    rho_vals = rho_vals.repeat(accumulator.flatten())
+
+    # normalize the values for faster convergence
+    theta_vals_normed = (theta_vals - theta_vals.mean()) / theta_vals.std()
+    rho_vals_normed = (rho_vals - rho_vals.mean()) / rho_vals.std()
+
+    # picking random (rho, theta) pair
+    center_idx = np.random.randint(theta_vals.shape[0])
+    center_theta = theta_vals_normed[center_idx]
+    center_rho = rho_vals_normed[center_idx]
+
+    # mean shift algorithm
+    delta = 1e-5  # stopping criteria
+    sigma = 0.2  # defining the neighborhood
+    while True:
+        kernel = np.exp(
+            -(1 / sigma ** 2)
+            * (
+                np.square(theta_vals_normed - center_theta)
+                + np.square(rho_vals_normed - center_rho)
+            )
+        )
+        new_center_theta = np.sum(kernel * theta_vals_normed) / np.sum(kernel)
+        new_center_rho = np.sum(kernel * rho_vals_normed) / np.sum(kernel)
+
+        theta_delta = new_center_theta - center_theta
+        rho_delta = new_center_rho - center_rho
+
+        center_theta = new_center_theta
+        center_rho = new_center_rho
+
+        if rho_delta < delta and theta_delta < delta:
+            break
+
+    # unnormalize the final values
+    center_theta = (center_theta * theta_vals.std()) + theta_vals.mean()
+    center_rho = (center_rho * rho_vals.std()) + rho_vals.mean()
+
+    draw_hough_lines(img, [(center_rho, center_theta)])
+    display_imgs({"Mean Shift": img})
 
 
 ##############################################
@@ -203,8 +253,8 @@ def task_4_a():
 ##############################################
 
 if __name__ == "__main__":
-    task_1_a()
-    task_1_b()
+    # task_1_a()
+    # task_1_b()
     # task_2()
     # task_3_a()
     # task_3_b()
