@@ -2,9 +2,6 @@ import numpy as np
 import cv2 as cv
 import random
 
-from numpy.lib.function_base import meshgrid
-
-
 ##############################################
 #     Task 1        ##########################
 ##############################################
@@ -86,20 +83,30 @@ def myKmeans(data, k):
     """
     centers = np.zeros((k, data.shape[1]))
     index = np.zeros(data.shape[0], dtype=int)
-    clusters = [[] for i in range(k)]
 
     # initialize centers using some random points from data
-    # ....
+    centers_old = data[np.random.choice(data.shape[0], k, False)]
 
     convergence = False
     iterationNo = 0
     while not convergence:
         # assign each point to the cluster of closest center
-        # ...
+        for i in range(data.shape[0]):
+            index[i] = np.argmin(np.linalg.norm(centers_old - data[i], 2, 1))
 
         # update clusters' centers and check for convergence
-        # ...
+        for j in range(k):
+            if np.sum(index == j) != 0:
+                centers[j] = np.sum(data[index == j], 0) / np.sum(index == j)
+            else:
+                print('Divide by zero encountered in updating cluster means...\n Reinitializing cluster center...\n')
+                centers[j] = data[np.random.choice(data.shape[0], 1)]
 
+        if np.sum(np.linalg.norm(centers - centers_old, 2, 1)) < 0.01:
+            convergence = True
+            break
+        
+        centers_old = np.copy(centers)
         iterationNo += 1
         print('iterationNo = ', iterationNo)
 
@@ -108,12 +115,16 @@ def myKmeans(data, k):
 
 def task_3_a():
     print("Task 3 (a) ...")
-    img = cv.imread('../images/flower.png')
-    '''
-    ...
-    your code ...
-    ...
-    '''
+    img = cv.imread('../images/flower.png', 0)
+    
+    img_segmented = np.zeros((img.shape[0] * img.shape[1], 1))
+    for k in [2, 4, 6]:
+        index, centers = myKmeans(img.reshape(-1, 1), k)
+        for i in range(k):
+            img_segmented[index == i] = centers[i]
+        cv.imshow('image segmented', img_segmented.reshape(img.shape).astype(np.uint8))
+        cv.waitKey(0)
+        cv.destroyAllWindows()
 
 
 def task_3_b():
@@ -184,8 +195,7 @@ if __name__ == "__main__":
     # task_1_a()
     # task_1_b()
     # task_2()
-    # task_3_a()
+    task_3_a()
     # task_3_b()
     # task_3_c()
-    task_4_a()
-
+    # task_4_a()
