@@ -68,11 +68,9 @@ def task_2():
     ...
     '''
 
-
 ##############################################
 #     Task 3        ##########################
 ##############################################
-
 
 def myKmeans(data, k):
     """
@@ -91,8 +89,10 @@ def myKmeans(data, k):
     iterationNo = 0
     while not convergence:
         # assign each point to the cluster of closest center
-        for i in range(data.shape[0]):
-            index[i] = np.argmin(np.linalg.norm(centers_old - data[i], 2, 1))
+        dist_to_centers = np.zeros((data.shape[0], k))
+        for i in range(k):
+            dist_to_centers[:, i] = np.linalg.norm(data - centers_old[i], 2, 1)
+        index = np.argmin(dist_to_centers, 1)
 
         # update clusters' centers and check for convergence
         for j in range(k):
@@ -120,9 +120,8 @@ def task_3_a():
     img_segmented = np.zeros((img.shape[0] * img.shape[1], 1))
     for k in [2, 4, 6]:
         index, centers = myKmeans(img.reshape(-1, 1), k)
-        for i in range(k):
-            img_segmented[index == i] = centers[i]
-        cv.imshow('image segmented', img_segmented.reshape(img.shape).astype(np.uint8))
+        img_segmented = centers[index]
+        cv.imshow('Image Segmented by Intensity: k = {}'.format(k), img_segmented.reshape(img.shape).astype(np.uint8))
         cv.waitKey(0)
         cv.destroyAllWindows()
 
@@ -130,27 +129,42 @@ def task_3_a():
 def task_3_b():
     print("Task 3 (b) ...")
     img = cv.imread('../images/flower.png')
-    '''
-    ...
-    your code ...
-    ...
-    '''
+    
+    img_segmented = np.zeros((img.shape[0] * img.shape[1], 3))
+    for k in [2, 4, 6]:
+        index, centers = myKmeans(img.reshape(-1, 3), k)
+        img_segmented = centers[index]
+        cv.imshow('Image Segmented by Color: k = {}'.format(k), img_segmented.reshape((img.shape[0], img.shape[1], 3)).astype(np.uint8))
+        cv.waitKey(0)
+        cv.destroyAllWindows()
 
 
 def task_3_c():
     print("Task 3 (c) ...")
-    img = cv.imread('../images/flower.png')
-    '''
-    ...
-    your code ...
-    ...
-    '''
+    img = cv.imread('../images/flower.png', 0)
+    
+    intensity_plus_pose = np.zeros((img.shape[0] * img.shape[1], 3))
+
+    # First dimension of the feature space - Intensity values (0 to 255)
+    intensity_plus_pose[:, 0] = img.flatten()
+
+    # Second dimension of the feature space - y-coordinate of the image space scaled to (0 to 255)
+    intensity_plus_pose[:, 1] = np.meshgrid(np.arange(img.shape[0]), np.arange(img.shape[1]))[0].T.flatten() * 255 / img.shape[0]
+
+    # Third dimension of the feature space - x-coordinate of the image space scaled to (0 to 255)
+    intensity_plus_pose[:, 2] = np.meshgrid(np.arange(img.shape[0]), np.arange(img.shape[1]))[1].T.flatten() * 255 / img.shape[1]
+
+    for k in [2, 4, 6]:
+        index, centers = myKmeans(intensity_plus_pose, k)
+        img_segmented = centers[index]
+        cv.imshow('Image Segmented by Intensity and Position of pixels: k = {}'.format(k), img_segmented[:, 0].reshape((img.shape[0], img.shape[1])).astype(np.uint8))
+        cv.waitKey(0)
+        cv.destroyAllWindows()
 
 
 ##############################################
 #     Task 4        ##########################
 ##############################################
-
 
 def task_4_a():
     print("Task 4 (a) ...")
@@ -186,7 +200,7 @@ def task_4_a():
     volume_1 = np.sum(D[cluster_1])
     volume_2 = np.sum(D[cluster_2])
 
-    cost_ncut = np.sum(W[meshgrid(cluster_1, cluster_2)[0], meshgrid(cluster_1, cluster_2)[1]]) * ((1 / volume_1) + (1 / volume_2))
+    cost_ncut = np.sum(W[np.meshgrid(cluster_1, cluster_2)[0], np.meshgrid(cluster_1, cluster_2)[1]]) * ((1 / volume_1) + (1 / volume_2))
     print("Cost of the Normalized Graph Cut is: ", cost_ncut)
 
 ##############################################
@@ -196,6 +210,6 @@ if __name__ == "__main__":
     # task_1_b()
     # task_2()
     task_3_a()
-    # task_3_b()
-    # task_3_c()
-    # task_4_a()
+    task_3_b()
+    task_3_c()
+    task_4_a()
