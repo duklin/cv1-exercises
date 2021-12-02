@@ -64,8 +64,8 @@ def get_phi_onesided_derivatives(phi: np.ndarray) -> dict:
     phi = np.pad(phi, pad_width=1)
     right = phi[1:-1, 2:] - phi[1:-1, 1:-1]
     left = phi[1:-1, 1:-1] - phi[1:-1, :-2]
-    down = phi[2:, 1:-1] - phi[1:-1, 1:-1]
-    up = phi[1:-1, 1:-1] - phi[:-2, 1:-1]
+    down = phi[:-2, 1:-1] - phi[1:-1, 1:-1]
+    up = phi[1:-1, 1:-1] - phi[2:, 1:-1]
     return {"right": right, "left": left, "up": up, "down": down}
 
 
@@ -101,7 +101,8 @@ if __name__ == "__main__":
     w = 1 / (gradient + 1)
     dw = get_weight_derivatives(w)
 
-    tau = 1 / (5 * np.max(w))
+    # tau = 1 / (4 * np.max(w))
+    tau = 0.1
     epsilon = 1e-4
     # ------------------------
 
@@ -121,14 +122,17 @@ if __name__ == "__main__":
             / (d_phi["x"] * d_phi["x"] + d_phi["y"] * d_phi["y"] + epsilon)
         )
         onesided_d_phi = get_phi_onesided_derivatives(phi)
-        towards_edges_term = (
+        front_propagation = (
             np.max(dw["x"], 0) * onesided_d_phi["right"]
             + np.min(dw["x"], 0) * onesided_d_phi["left"]
             + np.max(dw["y"], 0) * onesided_d_phi["down"]
             + np.min(dw["y"], 0) * onesided_d_phi["up"]
         )
-        phi = phi + mean_curv_term
-        # phi = phi + mean_curv_term + towards_edges_term
+        # phi = phi + mean_curv_term
+        # phi = phi + mean_curv_term + 0.001 * front_propagation
+        phi = (
+            phi + mean_curv_term + 0.001 * (dw["x"] * d_phi["x"] + dw["y"] * d_phi["y"])
+        )
         # ------------------------
 
         if t % plot_every_n_step == 0:
