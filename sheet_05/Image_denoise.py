@@ -65,28 +65,116 @@ def question_3(I, rho=0.7, pairwise_cost_same=0.005, pairwise_cost_diff=0.2):
     cv2.imshow("Denoised Img", Denoised_I), cv2.waitKey(0), cv2.destroyAllWindows()
 
 
-def question_4(I, rho=0.6):
+def potts(wm, wn):
+    if wm == wn:
+        return 0
+    return 0.35
 
+
+def add_single_edge(graph, node, neighbor, node_label, neighbor_label, current_label):
+    if node_label == neighbor_label == current_label:
+        return
+    if node_label == current_label:
+        graph.add_edge(node, neighbor, 0, potts(node_label, neighbor_label))
+        return
+    if (node_label == neighbor_label) and (node_label != current_label):
+        graph.add_edge(
+            node,
+            neighbor,
+            potts(node_label, current_label),
+            potts(current_label, node_label),
+        )
+        return
+    if (
+        (node_label != current_label)
+        and (neighbor_label != current_label)
+        and (node_label != neighbor_label)
+    ):
+        new_node_id = graph.add_nodes(1)
+        graph.add_edge(node, new_node_id, potts(node_label, current_label), np.inf)
+        graph.add_edge(
+            new_node_id, neighbor, np.inf, potts(current_label, neighbor_label)
+        )
+        graph.add_tedge(new_node_id, 0, potts(node_label, neighbor_label))
+        return
+
+
+def question_4(I, rho=0.6):
     labels = np.unique(I).tolist()
 
-    Denoised_I = np.zeros_like(I)
+    Denoised_I = np.copy(I)
     # Use Alpha expansion binary image for each label
 
-    # 1) Define Graph
+    h, w = I.shape
+    num_pixels = h * w
 
-    # 2) Add pixels as nodes
+    Denoise_old = np.copy(I)
+    while True:
+        for label in labels:
+            # 1) Define Graph
+            g = maxflow.Graph[float](num_pixels, num_pixels)
 
-    # 3) Compute Unary cost
+            # 2) Add pixels as nodes
+            nodeid = g.add_grid_nodes(Denoised_I.shape)
 
-    # 4) Add terminal edges
+            # 3) Compute Unary costget_grid_segments
+            U_source = -np.log(np.where(Denoised_I == label, rho, 0.5 * (1 - rho)))
+            U_sink = np.where(Denoised_I == label, np.inf, -np.log(rho))
 
-    # 5) Add Node edges
-    # Vertical Edges
+            # 4) Add terminal edges
+            g.add_grid_tedges(nodeid, U_source, U_sink)
 
-    # Horizontal edges
-    # (Keep in mind the stucture of neighbourhood and set the weights according to the pairwise potential)
+            # 5) Add Node edges
+            for i in range(0, h - 1):
+                for j in range(0, w - 1):
+                    add_single_edge(
+                        g,
+                        nodeid[i, j],
+                        nodeid[i + 1, j],
+                        Denoised_I[i, j],
+                        Denoised_I[i + 1, j],
+                        label,
+                    )
+                    add_single_edge(
+                        g,
+                        nodeid[i, j],
+                        nodeid[i, j + 1],
+                        Denoised_I[i, j],
+                        Denoised_I[i, j + 1],
+                        label,
+                    )
+            for i in range(0, h - 1):
+                add_single_edge(
+                    g,
+                    nodeid[i, -1],
+                    nodeid[i + 1, -1],
+                    Denoised_I[i, -1],
+                    Denoised_I[i + 1, -1],
+                    label,
+                )
 
-    # 6) Maxflow
+            for j in range(0, w - 1):
+                add_single_edge(
+                    g,
+                    nodeid[-1, j],
+                    nodeid[-1, j + 1],
+                    Denoised_I[-1, j],
+                    Denoised_I[-1, j + 1],
+                    label,
+                )
+
+            # (Keep in mind the stucture of neighbourhood and set the weights according to the pairwise potential)
+
+            # 6) Maxflow
+            g.maxflow()
+
+            seg = g.get_grid_segments(nodeid)
+
+            Denoised_I[seg] = label
+
+        if Denoise_old.all() == Denoised_I.all():
+            break
+        Denoise_old = Denoised_I
 
     # Do not use the close button on image window to close, instead press enter (or any other key) to close windows.
     cv2.imshow("Original Img", I), cv2.imshow("Denoised Img", Denoised_I), cv2.waitKey(
@@ -98,13 +186,13 @@ def main():
     image_q3 = cv2.imread("./images/noise.png", cv2.IMREAD_GRAYSCALE)
     image_q4 = cv2.imread("./images/noise2.png", cv2.IMREAD_GRAYSCALE)
 
-    # Call solution for question 3
+    # # Call solution for question 3
     question_3(image_q3, rho=0.7, pairwise_cost_same=0.005, pairwise_cost_diff=0.2)
     question_3(image_q3, rho=0.7, pairwise_cost_same=0.005, pairwise_cost_diff=0.35)
     question_3(image_q3, rho=0.7, pairwise_cost_same=0.005, pairwise_cost_diff=0.55)
 
     # Call solution for question 4, maybe test it 0 < rho <= 0.2 to see which one works better
-    # question_4(image_q4, rho=0.2)
+    question_4(image_q4, rho=0.4)
 
 
 if __name__ == "__main__":
