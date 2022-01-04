@@ -1,13 +1,11 @@
 {
     "python.languageServer": "Pylance",
     "editor.formatOnSave": true,
-    "python.linting.pylintArgs": [
-        "--extension-pkg-allow-list=cv2"
-    ],
     "python.linting.enabled": true,
     "python.linting.flake8Enabled": true,
     "python.linting.flake8Args": [
-        "--max-line-length=100"
+        "--max-line-length=88",
+        "--extend-ignore=E203"
     ],
     "python.formatting.provider": "black",
 }

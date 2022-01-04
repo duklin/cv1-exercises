@@ -4,3 +4,5 @@ Sheet 02: 19.5/20
 Sheet 03: 19.5/20
 Sheet 04: 15.5/20
 Sheet 05: 20/20
+Sheet 06: 20/20
+Sheet 07: 2/20
